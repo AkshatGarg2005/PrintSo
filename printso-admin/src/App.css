@@ -1,0 +1,104 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* src/App.css (for printso-admin) */
+.AdminApp {
+  padding: 20px;
+  font-family: sans-serif;
+}
+
+.AdminApp h1 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.AdminApp button {
+  padding: 8px 12px;
+  margin-bottom: 15px;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #f8f8f8;
+}
+
+.AdminApp button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.AdminApp .error-message {
+  color: #D8000C; /* Red */
+  background-color: #FFD2D2;
+  border: 1px solid;
+  margin: 10px 0px;
+  padding: 15px 10px 15px 10px;
+  border-radius: 4px;
+}
+
+.AdminApp table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.AdminApp th, .AdminApp td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: left;
+}
+
+.AdminApp th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+.AdminApp tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.AdminApp tr:hover {
+  background-color: #f1f1f1;
+}
+
+.AdminApp td button {
+   margin-bottom: 0; /* Reset margin for buttons inside table */
+   padding: 5px 10px;
+   font-size: 0.9em;
+}
