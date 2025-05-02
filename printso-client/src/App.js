@@ -1,7 +1,7 @@
-// src/App.js (printso-client) - Testing with 'returning: minimal'
+// src/App.js (printso-client) - Enhanced UI
 import React, { useState } from 'react';
 import { supabase } from './supabaseClient';
-import './App.css'; // Ensure styles are in App.css
+import './App.css';
 
 function App() {
   const [name, setName] = useState('');
@@ -57,7 +57,7 @@ function App() {
 
       if (uploadError) {
         console.error("Upload Error:", uploadError);
-        throw new Error(`File Upload Failed: ${uploadError.message}`); // Simplified error
+        throw new Error(`File Upload Failed: ${uploadError.message}`);
       }
 
       console.log("File upload successful. Proceeding to insert order.");
@@ -74,14 +74,11 @@ function App() {
       console.log("Attempting to insert this data:", JSON.stringify(orderData, null, 2));
 
       // 2. Insert order details with 'returning: minimal'
-      // *** MODIFIED INSERT CALL ***
       const { error: insertError } = await supabase
         .from('orders')
         .insert([orderData], {
-            returning: 'minimal' // Match curl prefer header
-            // defaultToNull defaults to true, which is usually fine
+            returning: 'minimal'
         });
-        // Note: .select() cannot be used with returning: 'minimal'
 
       // Check for insert errors
       if (insertError) {
@@ -93,7 +90,7 @@ function App() {
           if (removeError) console.error("Failed to remove file after insert error:", removeError);
           else console.log("Successfully removed file after insert error.");
         }
-        // Throw specific error based on code/message
+        
         if (insertError.code === '42501' || (insertError.message && insertError.message.includes('violates row-level security policy'))) {
           throw new Error(`Order Submission Failed: Database auth/policy error from client (Code: ${insertError.code}). Even with minimal return.`);
         } else if (insertError.message && insertError.message.includes('null value in column')) {
@@ -102,10 +99,10 @@ function App() {
         throw new Error(`Order Submission Failed: Database error - ${insertError.message} (Code: ${insertError.code})`);
       }
 
-      // Success (determined by lack of error when using returning: minimal)
-      // 'data' will be null here, so we can't log it
+      // Success
       console.log("Order insert successful (minimal return).");
       setMessage('Order submitted successfully! Thank you.');
+      
       // Reset form
       setName('');
       setPhone('');
@@ -129,47 +126,58 @@ function App() {
   return (
     <div className="App">
       <h1>Welcome to Printso!</h1>
-      <p>Upload your document and submit your print order.</p>
+      <p>Upload your document and submit your print order</p>
 
-      <form onSubmit={handleSubmit}>
-        {/* Form fields remain the same */}
-         <div>
-              <label htmlFor="name">Name:</label>
-              <input
-                type="text"
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                disabled={uploading}
-              />
+      <div className="form-container">
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="name">Name</label>
+            <input
+              type="text"
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              disabled={uploading}
+              placeholder="Enter your full name"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="phone">Phone Number</label>
+            <input
+              type="tel"
+              id="phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+              disabled={uploading}
+              placeholder="Enter your phone number"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="printType">Print Type</label>
+            <select
+              id="printType"
+              value={printType}
+              onChange={(e) => setPrintType(e.target.value)}
+              disabled={uploading}
+            >
+              <option value="Black & White">Black & White</option>
+              <option value="Color">Color</option>
+            </select>
+            <div className="cost-info">
+              Estimated cost: {cost}
             </div>
-            <div>
-              <label htmlFor="phone">Phone Number:</label>
-              <input
-                type="tel"
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-                disabled={uploading}
-              />
-            </div>
-            <div>
-              <label htmlFor="printType">Print Type:</label>
-              <select
-                id="printType"
-                value={printType}
-                onChange={(e) => setPrintType(e.target.value)}
-                disabled={uploading}
-              >
-                <option value="Black & White">Black & White (Rs. 3/page)</option>
-                <option value="Color">Color (Rs. 8/page)</option>
-              </select>
-              <span> - Estimated cost: {cost}</span>
-            </div>
-             <div>
-              <label htmlFor="file-input">Choose File:</label>
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="file-input">Upload Document</label>
+            <div className="file-input-container">
+              <label className="file-input-button" htmlFor="file-input">
+                Choose File
+              </label>
               <input
                 type="file"
                 id="file-input"
@@ -177,28 +185,41 @@ function App() {
                 required
                 disabled={uploading}
               />
-               <span style={{ marginLeft: '10px' }}>{fileNameDisplay}</span>
+              <div className="file-name">
+                {fileNameDisplay}
+              </div>
             </div>
-            <div>
-              <label htmlFor="specialRequests">Special Requests:</label>
-              <textarea
-                id="specialRequests"
-                value={specialRequests}
-                onChange={(e) => setSpecialRequests(e.target.value)}
-                placeholder="e.g., Spiral binding, Stick file, Double-sided printing..."
-                rows="3"
-                disabled={uploading}
-              />
-            </div>
-            <button type="submit" disabled={uploading || !file}>
-              {uploading ? 'Submitting...' : 'Submit Order'}
-            </button>
-      </form>
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="specialRequests">Special Requests</label>
+            <textarea
+              id="specialRequests"
+              value={specialRequests}
+              onChange={(e) => setSpecialRequests(e.target.value)}
+              placeholder="e.g., Spiral binding, Stick file, Double-sided printing..."
+              rows="3"
+              disabled={uploading}
+            />
+          </div>
+          
+          <button type="submit" disabled={uploading || !file}>
+            {uploading ? (
+              <>
+                <span className="spinner"></span>
+                Submitting...
+              </>
+            ) : (
+              'Submit Order'
+            )}
+          </button>
+        </form>
+      </div>
 
       {message && (
-          <p className={`message ${message.startsWith('Error:') ? 'error' : 'success'}`}>
-              {message}
-          </p>
+        <div className={`message ${message.startsWith('Error:') ? 'error' : 'success'}`}>
+          {message}
+        </div>
       )}
     </div>
   );

@@ -1,16 +1,17 @@
-// src/App.js (for printso-admin) - With Delete Functionality (Requires correct Storage Policies)
+// src/App.js (for printso-admin) - Enhanced UI
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import './App.css'; // Ensure styles are linked
+import './App.css';
 
 function App() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [deletingOrderId, setDeletingOrderId] = useState(null); // Track which order is being deleted
+  const [deletingOrderId, setDeletingOrderId] = useState(null);
+  const [downloadingOrderId, setDownloadingOrderId] = useState(null);
 
   // --- Constants ---
-  const BUCKET_NAME = 'print-files'; // Your bucket name
+  const BUCKET_NAME = 'print-files';
 
   useEffect(() => {
     fetchOrders();
@@ -37,14 +38,17 @@ function App() {
   }
 
   // --- Download Handler ---
-  const handleDownload = async (filePath, originalFileName) => {
+  const handleDownload = async (orderId, filePath, originalFileName) => {
     if (!filePath) {
       alert('Error: No file path associated with this order.');
       return;
     }
+    
+    setDownloadingOrderId(orderId);
+    
     try {
       console.log(`Attempting to get download URL for: ${filePath}`);
-      // Try public URL first (requires SELECT policy for service_role)
+      // Try public URL first
       const { data: urlData, error: urlError } = supabase.storage
         .from(BUCKET_NAME)
         .getPublicUrl(filePath);
@@ -55,7 +59,7 @@ function App() {
           downloadUrl = urlData.publicUrl;
       } else {
           console.warn("Could not get public URL or bucket isn't public, trying signed URL. Error:", urlError);
-          // Fallback to Signed URL (Requires SELECT policy for service_role)
+          // Fallback to Signed URL
           const { data: signedData, error: signedError } = await supabase.storage
             .from(BUCKET_NAME)
             .createSignedUrl(filePath, 300); // 5 minutes expiry
@@ -71,6 +75,8 @@ function App() {
     } catch (error) {
       console.error('Error getting download URL:', error);
       alert(`Failed to get download link: ${error.message}`);
+    } finally {
+      setDownloadingOrderId(null);
     }
   };
 
@@ -82,8 +88,6 @@ function App() {
     link.click();
     document.body.removeChild(link);
   };
-  // --- End Download Handler ---
-
 
   // --- Delete Handler ---
   const handleDelete = async (orderId, filePath) => {
@@ -96,16 +100,14 @@ function App() {
 
     try {
       // 1. Delete file from Storage (if path exists)
-      // Requires DELETE policy for service_role on the bucket
       if (filePath) {
         console.log(`Attempting to delete file: ${filePath} from bucket ${BUCKET_NAME}`);
         const { error: fileError } = await supabase.storage
           .from(BUCKET_NAME)
-          .remove([filePath]); // remove expects an array
+          .remove([filePath]);
 
         if (fileError) {
           console.error("Error deleting file from storage:", fileError);
-          // Decide if you want to stop or continue if file delete fails
           throw new Error(`Failed to delete file (${filePath}): ${fileError.message}. Order not deleted.`);
         }
         console.log(`Successfully deleted file: ${filePath}`);
@@ -122,87 +124,125 @@ function App() {
 
       if (dbError) {
         console.error("Error deleting order from database:", dbError);
-        // NOTE: If DB delete fails, the file *might* have already been deleted.
-        // Consider more robust transaction handling if this is critical.
         throw new Error(`Failed to delete order (ID ${orderId}) from database: ${dbError.message}`);
       }
       console.log(`Successfully deleted order ID: ${orderId} from database.`);
 
       // 3. Update local state
       setOrders(currentOrders => currentOrders.filter(order => order.id !== orderId));
-      // alert(`Order ID ${orderId} deleted successfully.`); // Optional: uncomment for alert
 
     } catch (err) {
       console.error("Deletion process failed:", err);
       setError(`Deletion failed: ${err.message}`);
-      alert(`Deletion failed: ${err.message}`); // Show alert on error
+      alert(`Deletion failed: ${err.message}`);
     } finally {
       setDeletingOrderId(null);
     }
   };
-  // --- End Delete Handler ---
 
+  // Format date for display
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString('en-IN', {
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   return (
     <div className="AdminApp">
-      <h1>Printso Admin - Orders</h1>
+      <h1>Printso Admin Dashboard</h1>
 
-      <button onClick={fetchOrders} disabled={loading || deletingOrderId}>
-        {loading ? 'Refreshing...' : 'Refresh Orders'}
-      </button>
+      <div className="control-panel">
+        <button 
+          className="refresh-button"
+          onClick={fetchOrders} 
+          disabled={loading || !!deletingOrderId}
+        >
+          {loading ? (
+            <>
+              <span className="refresh-icon"></span>
+              Refreshing...
+            </>
+          ) : (
+            'Refresh Orders'
+          )}
+        </button>
+      </div>
 
-      {error && <p className="error-message">{error}</p>}
-      {loading && !error && <p>Loading orders...</p>}
-      {!loading && !error && orders.length === 0 && <p>No orders found.</p>}
+      {error && <div className="error-message">{error}</div>}
+      
+      {loading && !error && (
+        <div className="status-message">Loading orders...</div>
+      )}
+      
+      {!loading && !error && orders.length === 0 && (
+        <div className="status-message">No orders found.</div>
+      )}
 
       {!loading && !error && orders.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Order Date</th>
-              <th>Customer Name</th>
-              <th>Phone</th>
-              <th>Print Type</th>
-              <th>Special Requests</th>
-              <th>File</th>
-              <th>Original Filename</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((order) => (
-              <tr key={order.id}>
-                <td>{new Date(order.created_at).toLocaleString()}</td>
-                <td>{order.customer_name}</td>
-                <td>{order.customer_phone}</td>
-                <td>{order.print_type}</td>
-                <td>{order.special_requests || '-'}</td>
-                <td>
-                  {order.file_path ? (
-                    <button
-                      onClick={() => handleDownload(order.file_path, order.original_file_name)}
-                      disabled={loading || !!deletingOrderId}
-                    >
-                      Download File
-                    </button>
-                  ) : (
-                    'No file path'
-                  )}
-                </td>
-                <td>{order.original_file_name || '(Not recorded)'}</td>
-                <td>
-                  <button
-                    onClick={() => handleDelete(order.id, order.file_path)}
-                    disabled={loading || !!deletingOrderId}
-                    style={{ backgroundColor: '#f44336', color: 'white' }}
-                  >
-                    {deletingOrderId === order.id ? 'Deleting...' : 'Delete'}
-                  </button>
-                </td>
+        <div className="table-container">
+          <table className="orders-table">
+            <thead>
+              <tr>
+                <th>Order Date</th>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Print Type</th>
+                <th>Special Requests</th>
+                <th>File</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr 
+                  key={order.id}
+                  className={
+                    deletingOrderId === order.id || downloadingOrderId === order.id 
+                      ? 'table-row-loading' 
+                      : ''
+                  }
+                >
+                  <td className="order-date">
+                    {formatDate(order.created_at)}
+                  </td>
+                  <td>{order.customer_name}</td>
+                  <td>{order.customer_phone}</td>
+                  <td>{order.print_type}</td>
+                  <td>
+                    {order.special_requests || <span className="empty-value">None</span>}
+                  </td>
+                  <td>
+                    {order.original_file_name || <span className="empty-value">No filename</span>}
+                  </td>
+                  <td>
+                    <div className="action-buttons">
+                      {order.file_path && (
+                        <button
+                          className="action-button download-button"
+                          onClick={() => handleDownload(order.id, order.file_path, order.original_file_name)}
+                          disabled={loading || !!deletingOrderId || downloadingOrderId === order.id}
+                        >
+                          {downloadingOrderId === order.id ? 'Downloading...' : 'Download'}
+                        </button>
+                      )}
+                      <button
+                        className="action-button delete-button"
+                        onClick={() => handleDelete(order.id, order.file_path)}
+                        disabled={loading || !!deletingOrderId || !!downloadingOrderId}
+                      >
+                        {deletingOrderId === order.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
